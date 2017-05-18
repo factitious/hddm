@@ -36,7 +36,10 @@ def pdf_array(np.ndarray[double, ndim=1] x, double v, double sv, double a, doubl
     cdef np.ndarray[double, ndim=1] y = np.empty(size, dtype=np.double)
 
     for i in prange(size, nogil=True):
-        y[i] = full_pdf(x[i], v, sv, a, z, sz, t, st, err, n_st, n_sz, use_adaptive, simps_err)
+        if x[i] < 0:
+            y[i] = 1-(exp(-2*a*z*v) - 1) / (exp(-2*a*v) - 1)  # i.e., the prob of reaching No-Go boundary.
+        else:
+            y[i] = full_pdf(x[i], v, sv, a, z, sz, t, st, err, n_st, n_sz, use_adaptive, simps_err)
 
     y = y * (1 - p_outlier) + (w_outlier * p_outlier)
     if logp==1:
@@ -59,7 +62,10 @@ def wiener_like(np.ndarray[double, ndim=1] x, double v, double sv, double a, dou
         return -np.inf
 
     for i in prange(size, nogil=True, schedule='dynamic'):
-        p = full_pdf(x[i], v, sv, a, z, sz, t, st, err, n_st, n_sz, use_adaptive, simps_err)
+        if x[i] < 0:
+            p = 1-(exp(-2*a*z*v) - 1) / (exp(-2*a*v) - 1) #cdf_at_0[0] 
+        else:
+            p = full_pdf(x[i], v, sv, a, z, sz, t, st, err, n_st, n_sz, use_adaptive, simps_err)
         # If one probability = 0, the log sum will be -Inf
         p = p * (1 - p_outlier) + wp_outlier
         if p == 0:
@@ -89,10 +95,10 @@ def wiener_like_multi(np.ndarray[double, ndim=1] x, v, sv, a, z, sz, t, st, doub
             for param in multi:
                 params_iter[param] = params[param][i]
 
-            p = full_pdf(x[i], params_iter['v'],
-                         params_iter['sv'], params_iter['a'], params_iter['z'],
-                         params_iter['sz'], params_iter['t'], params_iter['st'],
-                         err, n_st, n_sz, use_adaptive, simps_err)
+            if x[i] < 0:
+                p = 1-(exp(-2*params_iter['a']*params_iter['z']*params_iter['v']) - 1) / (exp(-2*params_iter['a']*params_iter['v']) - 1) #cdf_at_0[0] 
+            else:
+                p = full_pdf(x[i], params_iter['v'],params_iter['sv'], params_iter['a'], params_iter['z'],params_iter['sz'], params_iter['t'], params_iter['st'],err, n_st, n_sz, use_adaptive, simps_err)
             p = p * (1 - p_outlier) + wp_outlier
             sum_logp += log(p)
 
